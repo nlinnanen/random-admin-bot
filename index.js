@@ -13,7 +13,7 @@ const bot = new Telegraf(process.env.BOT_TOKEN)
 
 bot.start(async ctx => {
   const admins = await bot.telegram.getChatAdministrators(ctx.chat.id)
-  const adminUsernames = _.shuffle(admins.map(admin => admin.user.username))
+  const adminUsernames = admins.map(admin => admin.user.username)
   let i = 1
   await ctx.reply(`New snapfluencer is: @${adminUsernames[0]}!`)
   setInterval(async () => {
@@ -21,7 +21,7 @@ bot.start(async ctx => {
     i = i < (adminUsernames.length - 1) ? i + 1 : 0
     await ctx.reply(`New snapfluencer is: @${username}!`)
   },
-    1000*5
+    1000*60*60*24*3
   ) 
 })
 
