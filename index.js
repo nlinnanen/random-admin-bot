@@ -11,15 +11,29 @@ if (!process.env.BOT_TOKEN) {
 
 const bot = new Telegraf(process.env.BOT_TOKEN)
 
+function getAdminUsernames(ctx) {
+  return bot.telegram.getChatAdministrators(ctx.chat.id).then(admins => 
+    admins.map(({user}) => ({username: user.username, id: user.id})).sort(_ => 0.5 - Math.random())
+  )
+}
+
+function newSnapfluencerString(admin){
+  return `New snapfluencer is: [@${admin.username}](tg://user?id=${admin.id})\\!`
+}
+
+
 bot.start(async ctx => {
-  const admins = await bot.telegram.getChatAdministrators(ctx.chat.id)
-  const adminUsernames = admins.map(admin => admin.user.username)
+  let adminUsernames = await getAdminUsernames(ctx)
   let i = 1
-  await ctx.reply(`New snapfluencer is: @${adminUsernames[0]}!`)
+  await ctx.replyWithMarkdownV2(newSnapfluencerString(adminUsernames[0]))
   setInterval(async () => {
-    const username = adminUsernames[i]
-    i = i < (adminUsernames.length - 1) ? i + 1 : 0
-    await ctx.reply(`New snapfluencer is: @${username}!`)
+    await ctx.replyWithMarkdownV2(newSnapfluencerString(adminUsernames[i]))
+    if(adminUsernames.length - 1 === i) {
+      i = 0
+      adminUsernames = await getAdminUsernames(ctx)
+    } else {
+      i += 1
+    }
   },
     1000*60*60*24*3
   ) 
