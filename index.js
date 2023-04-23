@@ -21,12 +21,14 @@ function newSnapfluencerString(admin){
   return `New snapfluencer is: [@${admin.username}](tg://user?id=${admin.id})\\!`
 }
 
+let interval = 0
 
 bot.start(async ctx => {
   let adminUsernames = await getAdminUsernames(ctx)
   let i = 1
   await ctx.replyWithMarkdownV2(newSnapfluencerString(adminUsernames[0]))
-  setInterval(async () => {
+  clearInterval(interval)
+  interval = setInterval(async () => {
     await ctx.replyWithMarkdownV2(newSnapfluencerString(adminUsernames[i]))
     if(adminUsernames.length - 1 === i) {
       i = 0
@@ -38,5 +40,7 @@ bot.start(async ctx => {
     1000*60*60*24*3
   ) 
 })
+
+bot.command('stop', ctx => clearInterval(interval))
 
 launchBotDependingOnNodeEnv(bot)
