@@ -48,10 +48,14 @@ export async function setSchedule(chatId, schedule) {
   return schedule
 }
 
-export async function updateAndShuffleUsernames(chatId) {
-  const usernames = await bot.telegram.getChatAdministrators(chatId).then(admins => 
-    admins.map(({user}) => ({username: user.username, id: user.id})).sort(_ => 0.5 - Math.random())
-  )
-  await client.set(`${chatId}:usernames`, JSON.stringify(usernames))
-  return usernames
+export async function addToChatIds(chatId) {
+  await client.sAdd('chatIds', JSON.stringify(chatId))
+}
+
+export async function getChatIds() {
+  return (await client.sMembers('chatIds')).map(JSON.parse)
+}
+
+export async function removeFromChatIds(chatId) {
+  await client.sRem('chatIds', JSON.stringify(chatId))
 }
