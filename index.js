@@ -1,10 +1,13 @@
 import * as dotenv from 'dotenv'
 import { Telegraf } from 'telegraf'
+import { isValidCron } from 'cron-validator'
+import cron from 'node-cron'
 
 import launchBotDependingOnNodeEnv from './launchBotDependingOnNodeEnv.js'
-import { client, getUsernames, setI } from './redis.js'
+import { getI, getSchedule, getUsernames, setI, setSchedule, updateAndShuffleUsernames } from './redis.js'
+import { newSnapfluencerString } from './utils.js'
 
-const INTERVAL = 1000*60*60*24*3
+const DEFAULT_CRON = "0 9 */3 * *"
 
 dotenv.config()
 
@@ -32,17 +35,44 @@ async function getAndSendNextSnapfluencer(ctx) {
 
   // Increment the index
   if(adminUsernames.length - 1 === i) {
-    await client.set(`${chatId}:i`, 0)
+    await setI(chatId, 0)
   } else {
-    await client.set(`${chatId}:i`, i + 1)
+    await setI(chatId, i + 1)
   }
 }
 
-let interval = 0
+let job = null
 bot.start(async ctx => {
-  await getAndSendNextSnapfluencer(ctx)
-  clearInterval(interval)
-  interval = setInterval(() => getAndSendNextSnapfluencer(ctx), INTERVAL) 
+  const chatId = ctx.chat.id
+  const schedule = (await getSchedule(chatId)) ?? (await setSchedule(chatId, DEFAULT_CRON))
+
+  job = cron.schedule(schedule , async () => {
+    console.log("Running cron job")
+    await getAndSendNextSnapfluencer(ctx)
+  })
+
+  await ctx.reply(`Bot started with schedule: ${schedule}`)
+})
+
+bot.command('schedule', async ctx => {
+  let schedule = ctx.message.text.replace(/\/schedule\s*/ , "")
+  if (schedule === "") {
+    const currentSchedule = (await getSchedule(ctx.chat.id)) ?? DEFAULT_CRON
+    return await ctx.reply("Current schedule is: " + currentSchedule)
+  } else if (!isValidCron(schedule)) {
+    return await ctx.reply("Invalid cron schedule!")
+  }
+
+  const chatId = ctx.chat.id
+  await setSchedule(chatId, schedule)
+
+  if(job) job.stop()
+  job = cron.schedule(schedule , async () => {
+    console.log("Running cron job")
+    await getAndSendNextSnapfluencer(ctx)
+  })
+
+  await ctx.reply("Schedule set successfully!")
 })
 
 bot.command('chat_id', async ctx => {
@@ -84,6 +114,6 @@ bot.command('set_order', async ctx => {
   await ctx.reply("Order set successfully!")
 })
 
-bot.command('stop', _ctx => clearInterval(interval))
+bot.command('stop', _ctx => job.stop())
 
 launchBotDependingOnNodeEnv(bot)

@@ -45,6 +45,7 @@ export async function setSchedule(chatId, schedule) {
   }
   
   await client.set(`${chatId}:schedule`, JSON.stringify(schedule))
+  return schedule
 }
 
 export async function updateAndShuffleUsernames(chatId) {
