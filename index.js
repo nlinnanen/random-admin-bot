@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv'
 import { Telegraf } from 'telegraf'
 
 import launchBotDependingOnNodeEnv from './launchBotDependingOnNodeEnv.js'
-import { createClient } from 'redis'
+import { client, getUsernames, setI } from './redis.js'
 
 const INTERVAL = 1000*60*60*24*3
 
@@ -13,47 +13,6 @@ if (!process.env.BOT_TOKEN) {
 }
 
 const bot = new Telegraf(process.env.BOT_TOKEN)
-
-const client = createClient({
-  url: process.env.REDIS_URL
-})
-
-// Keep-Alive Mechanism
-setInterval(async () => {
-  try {
-    await client.ping()
-  } catch (error) {
-    console.error('Error pinging Redis:', error)
-  }
-}, 1000 * 60 * 5)  // Ping Redis every 5 minutes
-
-client.on('error', err => {
-  bot.telegram.sendMessage(process.env.ADMIN_CHAT_ID, `Redis Client Error: ${err}`)
-  console.error('Redis Client Error', err)
-})
-
-await client.connect()
-console.log("Connected to redis!")
-
-async function updateAndShuffleUsernames(chatId) {
-  const usernames = await bot.telegram.getChatAdministrators(chatId).then(admins => 
-    admins.map(({user}) => ({username: user.username, id: user.id})).sort(_ => 0.5 - Math.random())
-  )
-  await client.set(`${chatId}:usernames`, JSON.stringify(usernames))
-  return usernames
-}
-
-function newSnapfluencerString(admin){
-  return `New snapfluencer is: [@${admin.username}](tg://user?id=${admin.id})\\!`
-}
-
-async function getI(chatId) {
-  return parseInt((await client.get(`${chatId}:i`)) ?? 0)
-}
-
-async function getUsernames(chatId) {
-  return JSON.parse(await client.get(`${chatId}:usernames`))
-}
 
 async function getAndSendNextSnapfluencer(ctx) {
   const chatId = ctx.chat.id
@@ -98,7 +57,6 @@ bot.command('chat_id', async ctx => {
  * then /set_order mediakeisari ulkoministeri would set it to mediakeisari, ulkoministeri, isanta
  */
 bot.command('set_order', async ctx => {
-
  let input = []
   try {
     input = ctx.message.text.replace("/set_order ", "").split(" ")
@@ -107,7 +65,7 @@ bot.command('set_order', async ctx => {
   }
 
   const chatId = ctx.chat.id
-  const usernames = JSON.parse(await client.get(`${chatId}:usernames`))
+  const usernames = await getUsernames(chatId)
 
   // Validate the input
   input.forEach(e => {
@@ -120,8 +78,8 @@ bot.command('set_order', async ctx => {
   const inputWithId = input.map(i => ({username: i, id: usernames.find(u => u.username === i).id}))
   const newUsernames = inputWithId.concat(usernames.filter(u => !input.includes(u.username)))
 
-  await client.set(`${chatId}:usernames`, JSON.stringify(newUsernames))
-  await client.set(`${chatId}:i`, input.length)
+  await setUsernames(chatId, newUsernames)
+  await setI(chatId, input.length)
 
   await ctx.reply("Order set successfully!")
 })
