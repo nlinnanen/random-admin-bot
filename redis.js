@@ -1,3 +1,4 @@
+import { isValidCron } from 'cron-validator'
 import { createClient } from 'redis'
 
 
@@ -25,12 +26,25 @@ export async function getI(chatId) {
 export async function getUsernames(chatId) {
   return JSON.parse(await client.get(`${chatId}:usernames`))
 }
+
+export async function getSchedule(chatId) {
+  return JSON.parse(await client.get(`${chatId}:schedule`))
+}
+
 export async function setI(chatId, i) {
   await client.set(`${chatId}:i`, i)
 }
 
 export async function setUsernames(chatId, usernames) {
   await client.set(`${chatId}:usernames`, JSON.stringify(usernames))
+}
+
+export async function setSchedule(chatId, schedule) {
+  if (!isValidCron(schedule)) {
+    throw new Error('Invalid cron schedule')
+  }
+  
+  await client.set(`${chatId}:schedule`, JSON.stringify(schedule))
 }
 
 export async function updateAndShuffleUsernames(chatId) {
