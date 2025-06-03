@@ -34,12 +34,10 @@ async function updateAndShuffleUsernames(chatId) {
 async function getAndSendNextSnapfluencer(chatId) {
   let i = await getI(dbClient, chatId)
   // Fetch the usernames and shuffle them at the start of loop
-  if(i === 0) await updateAndShuffleUsernames(dbClient, chatId)
-  const adminUsernames = await getUsernames(dbClient, chatId) ?? await updateAndShuffleUsernames(dbClient, chatId)
-  
+  if(i === 0) await updateAndShuffleUsernames(chatId)
+  const adminUsernames = await getUsernames(dbClient, chatId) ?? await updateAndShuffleUsernames(chatId)
   // If I is invalid, reset the loop
   if(i >= adminUsernames.length) i = 0
-
   try {
     await bot.telegram.sendMessage(chatId, newSnapfluencerString(adminUsernames[i]), {parse_mode: "MarkdownV2"})
   } catch(e) {
@@ -55,7 +53,7 @@ async function getAndSendNextSnapfluencer(chatId) {
 
 bot.start(async ctx => {
   console.log("Bot started by user: ", ctx.from.username)
-  const chatId = ctx.chat.id
+  const chatId = BigInt(ctx.chat.id)
   const schedule = (await getSchedule(dbClient, chatId)) ?? (await setSchedule(dbClient, chatId, DEFAULT_CRON))
   
   await addToChatIds(dbClient, chatId)
@@ -72,7 +70,7 @@ bot.start(async ctx => {
 
 bot.command('schedule', async ctx => {
   let schedule = ctx.message.text.replace(/\/schedule\s*/ , "")
-  const chatId = ctx.chat.id
+  const chatId = BigInt(ctx.chat.id)
 
   // If no schedule is given, return the current schedule
   if (schedule === "") {
@@ -89,7 +87,7 @@ bot.command('schedule', async ctx => {
   if(jobs.has(chatId)) {
     jobs.get(chatId).stop()
     const job = cron.schedule(schedule, () => getAndSendNextSnapfluencer(chatId))
-    jobs.set(chatId, job)
+    jobs.set(BigInt(chatId), job)
   }
 
   const readableSchedule = cronstrue.toString(schedule)
@@ -97,7 +95,7 @@ bot.command('schedule', async ctx => {
 })
 
 bot.command('chat_id', async ctx => {
-  const chatId = ctx.chat.id
+  const chatId = BigInt(ctx.chat.id)
   await ctx.reply("Chat id is: " + chatId)
 })
 
@@ -115,7 +113,7 @@ bot.command('set_order', async ctx => {
     return await ctx.reply("Parsing that message was not successful: " + e.message)
   }
 
-  const chatId = ctx.chat.id
+  const chatId = BigInt(ctx.chat.id)
   const usernames = await getUsernames(dbClient, chatId)
 
   // Validate the input
@@ -136,7 +134,7 @@ bot.command('set_order', async ctx => {
 })
 
 bot.command('stop', async ctx => {
-  const chatId = ctx.chat.id
+  const chatId = BigInt(BigInt(ctx.chat.id))
   if(jobs.has(chatId)) {
     jobs.get(chatId).stop()
     jobs.delete(chatId)
@@ -162,7 +160,7 @@ async function main() {
       const job = cron.schedule(schedule ,() => {
         return getAndSendNextSnapfluencer(chatId)
       })
-      jobs.set(chatId, job)
+      jobs.set(BigInt(chatId), job)
     } else {
       console.log("No schedule found for chatId: ", chatId)
     }

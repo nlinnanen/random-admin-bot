@@ -106,7 +106,7 @@ export async function getChatIds(client, ) {
 export async function removeFromChatIds(client, chatId) {
   await client.query(
     `DELETE
-       FROM chat_ids
+       FROM chat_data
       WHERE chat_id = $1`,
     [chatId]
   )
