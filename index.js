@@ -5,12 +5,15 @@ import cron from 'node-cron'
 import cronstrue from 'cronstrue'
 
 import launchBotDependingOnNodeEnv from './launchBotDependingOnNodeEnv.js'
-import { addToChatIds, getChatIds, getI, getSchedule, getUsernames, removeFromChatIds, setI, setSchedule, setUsernames } from './redis.js'
+import { addToChatIds, connectToDatabase, getChatIds, getI, getSchedule, getUsernames, removeFromChatIds, setI, setSchedule, setUsernames } from './postgres.js'
 import { newSnapfluencerString } from './utils.js'
 
 const DEFAULT_CRON = "0 9 */3 * *"
 
 dotenv.config()
+
+const dbClient = await connectToDatabase()
+
 
 if (!process.env.BOT_TOKEN) {
   throw new Error('Bot token not defined!')
@@ -24,15 +27,15 @@ async function updateAndShuffleUsernames(chatId) {
   const shuffled = admins
     .map(({user}) => ({username: user.username, id: user.id}))
     .sort(_ => 0.5 - Math.random())
-  await setUsernames(chatId, shuffled)
+  await setUsernames(dbClient, chatId, shuffled)
   return shuffled
 }
 
 async function getAndSendNextSnapfluencer(chatId) {
-  let i = await getI(chatId)
+  let i = await getI(dbClient, chatId)
   // Fetch the usernames and shuffle them at the start of loop
-  if(i === 0) await updateAndShuffleUsernames(chatId)
-  const adminUsernames = await getUsernames(chatId) ?? await updateAndShuffleUsernames(chatId)
+  if(i === 0) await updateAndShuffleUsernames(dbClient, chatId)
+  const adminUsernames = await getUsernames(dbClient, chatId) ?? await updateAndShuffleUsernames(dbClient, chatId)
   
   // If I is invalid, reset the loop
   if(i >= adminUsernames.length) i = 0
@@ -44,17 +47,18 @@ async function getAndSendNextSnapfluencer(chatId) {
   }
   // Increment the index
   if(adminUsernames.length - 1 === i) {
-    await setI(chatId, 0)
+    await setI(dbClient, chatId, 0)
   } else {
-    await setI(chatId, i + 1)
+    await setI(dbClient, chatId, i + 1)
   }
 }
 
 bot.start(async ctx => {
+  console.log("Bot started by user: ", ctx.from.username)
   const chatId = ctx.chat.id
-  const schedule = (await getSchedule(chatId)) ?? (await setSchedule(chatId, DEFAULT_CRON))
+  const schedule = (await getSchedule(dbClient, chatId)) ?? (await setSchedule(dbClient, chatId, DEFAULT_CRON))
   
-  await addToChatIds(chatId)
+  await addToChatIds(dbClient, chatId)
 
   if(jobs.has(chatId)) {
     jobs.get(chatId).stop()
@@ -72,14 +76,14 @@ bot.command('schedule', async ctx => {
 
   // If no schedule is given, return the current schedule
   if (schedule === "") {
-    const currentSchedule = (await getSchedule(chatId)) ?? DEFAULT_CRON
+    const currentSchedule = (await getSchedule(dbClient, chatId)) ?? DEFAULT_CRON
     return await ctx.reply("Current schedule is: " + currentSchedule)
   } else if (!isValidCron(schedule)) {
     return await ctx.reply("Invalid cron schedule!")
   }
 
   // If the schedule is valid, set it
-  await setSchedule(chatId, schedule)
+  await setSchedule(dbClient, chatId, schedule)
 
   // If the bot is running, stop it and start it again with the new schedule
   if(jobs.has(chatId)) {
@@ -112,7 +116,7 @@ bot.command('set_order', async ctx => {
   }
 
   const chatId = ctx.chat.id
-  const usernames = await getUsernames(chatId)
+  const usernames = await getUsernames(dbClient, chatId)
 
   // Validate the input
   input.forEach(e => {
@@ -125,8 +129,8 @@ bot.command('set_order', async ctx => {
   const inputWithId = input.map(i => ({username: i, id: usernames.find(u => u.username === i).id}))
   const newUsernames = inputWithId.concat(usernames.filter(u => !input.includes(u.username)))
 
-  await setUsernames(chatId, newUsernames)
-  await setI(chatId, input.length)
+  await setUsernames(dbClient, chatId, newUsernames)
+  await setI(dbClient, chatId, input.length)
 
   await ctx.reply("Order set successfully!")
 })
@@ -136,7 +140,7 @@ bot.command('stop', async ctx => {
   if(jobs.has(chatId)) {
     jobs.get(chatId).stop()
     jobs.delete(chatId)
-    await removeFromChatIds(chatId)
+    await removeFromChatIds(dbClient, chatId)
     await ctx.reply("Bot stopped successfully!")
   } else {
     await ctx.reply("Bot is not running on this chat!")
@@ -144,7 +148,7 @@ bot.command('stop', async ctx => {
 })
 
 async function main() {
-  const chatIds = await getChatIds()
+  const chatIds = await getChatIds(dbClient)
 
   if(!chatIds || chatIds.length === 0) {
     console.log("No chatIds found!")
@@ -152,7 +156,7 @@ async function main() {
   }
 
   chatIds.forEach(async chatId => {
-    const schedule = await getSchedule(chatId)
+    const schedule = await getSchedule(dbClient, chatId)
     if(schedule) {
       console.log("Starting a cron job for chatId: ", chatId)
       const job = cron.schedule(schedule ,() => {
