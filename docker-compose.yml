@@ -1,13 +1,17 @@
 version: '3.8'
 services:
-  cache:
-    image: redis:6.2-alpine
+  postgres:
+    image: postgres:14
     restart: always
     ports:
-      - '6379:6379'
-    command: redis-server --save 20 1
-    volumes: 
-      - cache:/data
+      - '5435:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: snapfluencer
+    volumes:
+      - postgres_data:/var/lib/postgresql/data 
+
 volumes:
-  cache:
+  postgres_data:
     driver: local

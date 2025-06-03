@@ -1,0 +1,3 @@
+# dbmate.yml
+url: ${DATABASE_URL}
+migrations_dir: db/migrations
