@@ -17,6 +17,7 @@ async function launchWebhookBot(bot) {
   const app = express()
 
   app.get('/', (_req, res) => {
+    console.log('Kovaa tulee')
     res.status(200).send('Kovaa tulee')
   })
 
