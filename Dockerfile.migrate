@@ -6,4 +6,4 @@ ENV DBMATE_SCHEMA_FILE=/db/schema.sql
 COPY db/migrations /db/migrations
 COPY db/schema.sql /db/schema.sql
 
-CMD ["dbmate", "--no-dump", "--no-rollback", "--no-seed", "--no-setup", "up"]
+CMD ["dbmate", "up"]
