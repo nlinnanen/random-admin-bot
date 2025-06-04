@@ -40,7 +40,7 @@ jobs:
       - name: Trigger deployment workflow in infra repo
         uses: peter-evans/repository-dispatch@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           repository: nlinnanen/infra
           event-type: deploy
           client-payload: |
