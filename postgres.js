@@ -111,3 +111,12 @@ export async function removeFromChatIds(client, chatId) {
     [chatId]
   )
 }
+
+export async function createChatData(client, chatId, schedule = null, i = 0, usernames = null) {
+  await client.query(
+    `INSERT INTO chat_data (chat_id, schedule, i, usernames)
+           VALUES ($1, $2, $3, $4)
+      ON CONFLICT (chat_id) DO NOTHING`,
+    [chatId, schedule, i, usernames ? JSON.stringify(usernames) : null]
+  )
+}

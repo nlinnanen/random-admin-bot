@@ -5,7 +5,7 @@ import cron from 'node-cron'
 import cronstrue from 'cronstrue'
 
 import launchBotDependingOnNodeEnv from './launchBotDependingOnNodeEnv.js'
-import { addToChatIds, connectToDatabase, getChatIds, getI, getSchedule, getUsernames, removeFromChatIds, setI, setSchedule, setUsernames } from './postgres.js'
+import { addToChatIds, connectToDatabase, createChatData, getChatIds, getI, getSchedule, getUsernames, removeFromChatIds, setI, setSchedule, setUsernames } from './postgres.js'
 import { newSnapfluencerString } from './utils.js'
 
 const DEFAULT_CRON = "0 9 */3 * *"
@@ -93,6 +93,34 @@ bot.command('schedule', async ctx => {
   const readableSchedule = cronstrue.toString(schedule)
   await ctx.reply(`Schedule set to: ${readableSchedule}`)
 })
+
+bot.command('import', async ctx => {
+  const payloadJSON = ctx.message.text.replace("/import ", "").trim()
+  if (!payloadJSON) {
+    return await ctx.reply("Please provide a valid payload to import!")
+  }
+  let payload
+  try {
+   payload = JSON.parse(payloadJSON)
+  } catch (e) {
+    return await ctx.reply("Invalid JSON payload: " + e.message)
+  }
+
+  const promsies = payload.map(async (chatData) => {
+    try {
+    const chatId = BigInt(chatData.chatId)
+    return await createChatData(dbClient, chatId, chatData?.schedule, chatData?.i, chatData?.usernames)
+    } catch (e) {
+      console.error("Error importing chat data: ", e.message)
+      console.error("Chat data: ", chatData)
+    }
+  })
+
+  await Promise.all(promsies)
+
+  await ctx.reply("Import completed successfully!")
+})
+
 
 bot.command('chat_id', async ctx => {
   const chatId = BigInt(ctx.chat.id)
