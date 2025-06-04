@@ -1,0 +1,55 @@
+name: CD ► Build & Trigger Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build app image
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}:latest .
+
+      - name: Build migration image
+        run: |
+          docker build -f Dockerfile.migrate \
+            -t ghcr.io/${{ github.repository }}-migrate:latest .
+
+      - name: Push app image
+        run: |
+          docker push ghcr.io/${{ github.repository }}:latest
+
+      - name: Push migration image
+        run: |
+          docker push ghcr.io/${{ github.repository }}-migrate:latest
+
+      - name: Trigger deployment workflow in infra repo
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: nlinnanen/infra
+          event-type: deploy
+          client-payload: |
+            {
+              "service": "snapfluencer",
+              "image": "ghcr.io/${{ github.repository }}:latest",
+              "docker_registry": "ghcr.io",
+              "docker_username": "${{ github.actor }}",
+              "migrate_image": "ghcr.io/${{ github.repository }}-migrate:latest",
+              "port": "8080",
+              "env": "production"
+            }
