@@ -14,7 +14,6 @@ dotenv.config()
 
 const dbClient = await connectToDatabase()
 
-
 if (!process.env.BOT_TOKEN) {
   throw new Error('Bot token not defined!')
 }
