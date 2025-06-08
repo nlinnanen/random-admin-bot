@@ -50,6 +50,7 @@ jobs:
               "docker_registry": "ghcr.io",
               "docker_username": "${{ github.actor }}",
               "migrate_image": "ghcr.io/${{ github.repository }}-migrate:latest",
-              "port": "8080",
+              "port": "3000",
               "env": "production"
             }
+É
