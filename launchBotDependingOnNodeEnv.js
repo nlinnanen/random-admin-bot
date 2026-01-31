@@ -42,7 +42,7 @@ async function launchWebhookBot(bot) {
 async function launchBotBasedOnNodeEnv(bot) {
   const useWebhook = process.env.NODE_ENV === 'production'
 
-  if (useWebhook) {
+  if (useWebhook && process.env.USE_WEBHOOK === 'true') {
     console.log('Launching bot in webhook mode')
     await launchWebhookBot(bot)
   } else {
